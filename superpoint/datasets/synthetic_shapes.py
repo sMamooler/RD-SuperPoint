@@ -1,4 +1,4 @@
-mport numpy as np
+import numpy as np
 import tensorflow as tf
 import cv2
 import os
@@ -207,8 +207,11 @@ class SyntheticShapes(BaseDataset):
                 data = data.map_parallel(lambda d: pipeline.photometric_augmentation(
                     d, **config['augmentation']['photometric']))
             if config['augmentation']['homographic']['enable']:
-                data = data.map_parallel(lambda d: pipeline.homographic_augmentation(
+                data = data.map_parallel(lambda d: pipeline.homographic_augmentation(d, **config['augmentation']['homographic']))
+            if config['augmentation']['distortion']['enable']:
+                data = data.map_parallel(lambda d: pipeline.radial_distortion_augmentation(
                     d, **config['augmentation']['homographic']))
+					
 
         # Convert the point coordinates to a dense keypoint map
         data = data.map_parallel(pipeline.add_keypoint_map)

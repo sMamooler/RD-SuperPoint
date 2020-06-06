@@ -1,11 +1,13 @@
 import tensorflow as tf
 import cv2 as cv
 import numpy as np
+import random
 
 from superpoint.datasets.utils import photometric_augmentation as photaug
 from superpoint.models.homographies import (sample_homography, compute_valid_mask,
                                             warp_points, filter_points)
-
+from superpoint.radial_distortion.radial_dist_funct import (distort,undistort,compute_valid_mask_dist,
+															warp_points_dist)
 
 def parse_primitives(names, all_primitives):
     p = all_primitives if (names == 'all') \
@@ -54,6 +56,39 @@ def homographic_augmentation(data, add_homography=False, **config):
     if add_homography:
         ret['homography'] = homography
     return ret
+
+
+############added for radial distortion augmentaion#############
+
+def radial_distortion_augmentation(data, add_distortion_params=False, **config):
+	with tf.name_scope('radial_distortion_augmentation'):
+		image_shape = tf.shape(data['image'])[:2]
+		H = image_shape[0]
+		W = image_shape[1]
+		row_c = tf.random_uniform(shape=[], minval=0, maxval=tf.cast(H, tf.float32), dtype=tf.float32)
+		col_c = tf.random_uniform(shape=[], minval=0, maxval=tf.cast(W, tf.float32), dtype=tf.float32) 
+		lambda_ = 0.000006
+		 
+		warped_image  = distort(data['image'][tf.newaxis,...],lambda_ ,(row_c,col_c))
+		warped_image = tf.reshape(warped_image,tf.shape(data['image']))
+		
+		valid_mask = compute_valid_mask_dist(image_shape, lambda_, (row_c,col_c), config['valid_border_margin'])
+		if(data['valid_mask']!=None):
+			valid_mask = tf.bitwise.bitwise_and(valid_mask,data['valid_mask'])
+			
+		warped_points = warp_points_dist(data['keypoints'], lambda_, (row_c,col_c), inverse=False)
+		warped_points = filter_points(warped_points,image_shape)
+		 
+		ret = {**data, 'image':warped_image, 'keypoints': warped_points,
+				  'valid_mask': valid_mask}
+		if add_distortion_params:
+			 ret['distortion_center'] = lambda_
+			 ret['distortion_factor'] = (row_c,col_c)
+		return ret
+		
+#################################################################
+
+
 
 
 def add_dummy_valid_mask(data):

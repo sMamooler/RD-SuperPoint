@@ -39,6 +39,8 @@ data:
                 allow_artifacts: true
                 translation_overflow: 0.05
             valid_border_margin: 2
+        distortion:
+            enable: true
 model:
     name: 'magic_point'
     batch_size: 64

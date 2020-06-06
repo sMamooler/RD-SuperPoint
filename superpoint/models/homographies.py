@@ -203,9 +203,7 @@ def sample_homography(
         center = tf.reduce_mean(pts2, axis=0, keepdims=True)
         rot_mat = tf.reshape(tf.stack([tf.cos(angles), -tf.sin(angles), tf.sin(angles),
                                        tf.cos(angles)], axis=1), [-1, 2, 2])
-        rotated = tf.matmul(
-                tf.tile(tf.expand_dims(pts2 - center, axis=0), [n_angles+1, 1, 1]),
-                rot_mat) + center
+        rotated = tf.matmul(tf.tile(tf.expand_dims(pts2 - center, axis=0), [n_angles+1, 1, 1]),rot_mat) + center
         if allow_artifacts:
             valid = tf.range(n_angles)  # all angles are valid, except angle=0
         else:

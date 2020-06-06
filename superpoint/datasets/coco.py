@@ -29,6 +29,9 @@ class Coco(BaseDataset):
                 'params': {},
                 'valid_border_margin': 0,
             },
+			'distortion': {
+				'enable': False,
+			},
         },
         'warped_pair': {
             'enable': False,
@@ -111,6 +114,9 @@ class Coco(BaseDataset):
             if is_training and config['augmentation']['photometric']['enable']:
                 warped = warped.map_parallel(lambda d: pipeline.photometric_augmentation(
                     d, **config['augmentation']['photometric']))
+            if config['augmentation']['distortion']['enable']:
+                data = data.map_parallel(lambda d: pipeline.radial_distortion_augmentation(
+                    d, **config['augmentation']['homographic']))
             warped = warped.map_parallel(pipeline.add_keypoint_map)
             # Merge with the original data
             data = tf.data.Dataset.zip((data, warped))
@@ -124,6 +130,9 @@ class Coco(BaseDataset):
             if config['augmentation']['homographic']['enable']:
                 assert not config['warped_pair']['enable']  # doesn't support hom. aug.
                 data = data.map_parallel(lambda d: pipeline.homographic_augmentation(
+                    d, **config['augmentation']['homographic']))
+            if config['augmentation']['distortion']['enable']:
+                data = data.map_parallel(lambda d: pipeline.radial_distortion_augmentation(
                     d, **config['augmentation']['homographic']))
 
         # Generate the keypoint map

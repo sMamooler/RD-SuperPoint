@@ -32,6 +32,9 @@ data:
                 max_angle: 1.57
                 allow_artifacts: true
             valid_border_margin: 3
+        distortion:
+	        enable: true
+				
 model:
     name: 'magic_point'
     batch_size: 32
