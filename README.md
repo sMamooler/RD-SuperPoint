@@ -2,7 +2,11 @@
 
 This is a modified version of SuperPoint feature detector and descriptor, changed to be more robust to radial distortion. The modifications are applied over the Tensorflow implementation of SuperPoint by Rémi Pautrat and Paul-Edouard Sarlin. 
 
+The following images show how RD-SuperPoint compares to SuperPoint and SIFT in the presence of radial distortion in the image. (From top: RD-SuperPoint, SuperPoint, SIFT).
 
+![rd-sp](doc/rd-sp.png)
+![sp](doc/sp.png)
+![sift](doc/sift.png)
 
 
 
