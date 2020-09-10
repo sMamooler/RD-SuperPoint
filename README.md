@@ -1,3 +1,11 @@
+# RD-SuperPoint
+
+This is a modified version of SuperPoint feature detector and descriptor, changed to be more robust to radial distortion. The modifications are applied over the Tensorflow implementation of SuperPoint by Rémi Pautrat and Paul-Edouard Sarlin. 
+
+
+
+
+
 # SuperPoint
 
 This is a Tensorflow implementation of  "SuperPoint: Self-Supervised Interest Point Detection and Description." Daniel DeTone, Tomasz Malisiewicz, Andrew Rabinovich. [ArXiv 2018](https://arxiv.org/abs/1712.07629).
