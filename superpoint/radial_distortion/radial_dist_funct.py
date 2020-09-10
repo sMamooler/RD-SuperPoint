@@ -1,7 +1,7 @@
 import tensorflow as tf
 from tensorflow.contrib.image import transform as H_transform
 import cv2 as cv
-	
+
 from superpoint.utils.tools import dict_update
 from superpoint.models.homographies import (homography_adaptation_default_config,sample_homography, 
 											invert_homography)
@@ -37,9 +37,9 @@ def distortion_homography_adaptation(image, net, config):
 		#############################################
 		H_ = shape[0]
 		W = shape[1]
-		row_c = tf.random.uniform(shape=[], minval=0, maxval=tf.cast(H_, tf.float32), dtype=tf.float32)
-		col_c = tf.random.uniform(shape=[], minval=0, maxval=tf.cast(W, tf.float32), dtype=tf.float32) 
-		lambda_ = tf.constant(0.00001)
+		row_c = tf.random_uniform(shape=[], minval=0, maxval=tf.cast(H_, tf.float32), dtype=tf.float32)
+		col_c = tf.random_uniform(shape=[], minval=0, maxval=tf.cast(W, tf.float32), dtype=tf.float32) 
+		lambda_ = tf.constant(0.000006)
 		#############################################
 		#apply the homography 
 		warped = H_transform(image, H, interpolation='BILINEAR')
@@ -49,14 +49,14 @@ def distortion_homography_adaptation(image, net, config):
 		
 		#count = warp_points_dist(tf.expand_dims(tf.ones(tf.shape(image)[:3]),-1), lambda_, (row_c,col_c), inverse=True)
 		count = undistort(tf.expand_dims(tf.ones(tf.shape(image)[:3]),-1),lambda_, (row_c, col_c))
-		count = tf.round(count)
-		count = H_transform(count,H_inv, interpolation='NEAREST')
+		#count = tf.round(count)
+		count = H_transform(count, H_inv, interpolation='NEAREST')
 		
 		mask = H_transform(tf.expand_dims(tf.ones(tf.shape(image)[:3]), -1),
 							 H,interpolation='NEAREST')
-		#mask = warp_points_dist(mask, lambda_, (row_c,col_c), inverse=False)
+		
 		mask = distort(mask, lambda_, (row_c,col_c))
-		mask = tf.round(mask)
+		
 		#############################################
 		
 		# Ignore the detections too close to the border to avoid artifacts
@@ -74,8 +74,12 @@ def distortion_homography_adaptation(image, net, config):
         # Predict detection probabilities
 		prob = net(warped)['prob']
 		prob = prob * mask
-		prob_proj = H_transform(tf.expand_dims(prob, -1), H_inv,
-                                interpolation='BILINEAR')[..., 0]
+        
+		prob_proj = undistort(tf.expand_dims(prob, -1), lambda_, (row_c, col_c))
+		prob_proj = H_transform(prob_proj, H_inv,interpolation='BILINEAR')[..., 0]
+		
+        
+        
 		prob_proj = prob_proj * count
 		probs = tf.concat([probs, tf.expand_dims(prob_proj, -1)], axis=-1)
 		counts = tf.concat([counts, tf.expand_dims(count, -1)], axis=-1)
@@ -155,6 +159,7 @@ def distort(image, distortion_factor, distortion_center):
 	d_coords = tf.stack([cols,rows],axis = 2)
 	d_coords = tf.cast(tf.reshape(d_coords, [H,W,2]),tf.float32)
 	
+	#print(d_coords)
 	cen = tf.stack([row_c,col_c],0)
 	
 	delta = tf.cast(d_coords-cen, tf.float32)
@@ -162,16 +167,12 @@ def distort(image, distortion_factor, distortion_center):
 	denom = lambda_ * norms + 1
 	u_coord = delta / denom + cen
 	
-	
+	#print(u_coord)
 		
-	#image = tf.reshape(image, [1,H,W,1])
-	u_coord = tf.reshape(u_coord, [1,H,W,2])
+	u_coord = tf.round(tf.reshape(u_coord, [1,H,W,2]))
 	u_coord = tf.tile(u_coord,[N,1,1,1])
 	d_image = tf.contrib.resampler.resampler(image, u_coord)
-	#d_image = tf.reshape(d_image,[H,W,1])
-	
-	return d_image
-	
+	return d_image	
 	#return {'distorted_image':d_image,'lambda': lambda_, 'dist_center':[row_c, col_c]}
 
 
@@ -204,36 +205,35 @@ def undistort(d_image, distortion_factor, distortion_center):
 	
 	cols = tf.range(W)
 	cols = tf.reshape(cols, [1,W])
-	#cols = tf.repeat(cols,H,axis = 0)
 	cols = tf.tile(cols, [H,1])
 	
 	rows = tf.range(H)
 	rows = tf.reshape(rows, [H,1])
-	#rows = tf.repeat(rows, W, axis=1)
 	rows = tf.tile(rows, [1,W])
 	
 	u_coords = tf.stack([cols,rows],axis = 2)
-	u_coords = tf.reshape(u_coords, [H,W,2])
+	u_coords = tf.cast(tf.reshape(u_coords, [H,W,2]), tf.float32)
 	
+	cen = tf.stack([row_c,col_c],0)
 	
-	delta = tf.cast(u_coords-[row_c, col_c], tf.float32)
+	delta = tf.cast(u_coords-cen, tf.float32)
 	norms = tf.norm(delta,'euclidean',2 ,keepdims=True)**2
-	nom = 1-tf.math.sqrt(1-4*lambda_*norms)
+	nom = 1-tf.sqrt(1-4*lambda_*norms)
 	denom = 2*lambda_*norms
-	d_coords = [row_c, col_c] + (nom/denom)*delta
+	d_coords = cen + (nom/denom)*delta
 	
 	
-
-	#d_image = tf.reshape(d_image, [1,H,W,1])
-	d_coords = tf.reshape(d_coords, [1,H,W,2])
+   
+	
+	d_coords = tf.round(tf.reshape(d_coords, [1,H,W,2]))
 	d_coords = tf.tile(d_coords,[N,1,1,1])
 	u_image = tf.contrib.resampler.resampler(tf.cast(d_image, tf.float32), d_coords)
-	#u_image = tf.reshape(u_image,[H,W,1])
+	
 	
 
 	return u_image
 	
-def compute_valid_mask_dist(image_shape, distortion_factor, distortion_center, erosion_radius=0):
+def compute_valid_mask_dist(image, distortion_factor, distortion_center, erosion_radius=0):
     """
     Compute a boolean mask of the valid pixels resulting from the radial distortion function applied to
     an image of a given shape. Pixels that are False correspond to bordering artifacts.
@@ -246,14 +246,15 @@ def compute_valid_mask_dist(image_shape, distortion_factor, distortion_center, e
 
     Returns: a Tensor of type `tf.int32` and shape (H, W).
     """
-    mask = distort(tf.ones(image_shape)[tf.newaxis,...,tf.newaxis],distortion_factor, distortion_center)
+	#image = tf.cast(image, tf.float32)
+    mask = distort(tf.cast(image, tf.float32)[tf.newaxis,...,tf.newaxis],distortion_factor, distortion_center)
     if erosion_radius > 0:
         kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (erosion_radius*2,)*2)
         mask = tf.nn.erosion2d(
                 mask,
                 tf.to_float(tf.constant(kernel)[..., tf.newaxis]),
                 [1, 1, 1, 1], [1, 1, 1, 1], 'SAME')[0, ..., 0] + 1.
-    return tf.to_int32(tf.math.round(mask))
+    return tf.cast(tf.round(mask), tf.int32)
 
 
 
@@ -274,18 +275,19 @@ def warp_points_dist(points, dist_factor, dist_center, inverse=False):
 				warped points.
 	
 	"""
-	points = tf.cast(points, tf.float32)
-	delta = points - [dist_center[0],dist_center[1]]
-	norms = tf.norm(delta,'euclidean',1 ,keepdims=True)**2
+	cen = tf.stack([dist_center[1],dist_center[0]],0)
+	delta = tf.cast(points-cen, tf.float32)
+	norms = tf.norm(delta,'euclidean', 1 ,keepdims=True)**2
+	
 	
 	if inverse:
 		denom = dist_factor * norms + 1
-		warped_points = delta / denom + dist_center
+		points = (delta / denom )+ cen
 	else:	
-		nom = 1-tf.math.sqrt(1-4*dist_factor*norms)
+		nom = 1-tf.sqrt(1-4*dist_factor*norms)
 		denom = 2*dist_factor*norms
-		warped_points = [dist_center[0],dist_center[1]]+(nom/denom)*delta
+		points = cen + (nom/denom)*delta
 		
 		
-	
-	return warped_points
+	points = tf.round(points)
+	return points

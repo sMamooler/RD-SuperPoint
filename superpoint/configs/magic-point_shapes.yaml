@@ -41,6 +41,7 @@ data:
             valid_border_margin: 2
         distortion:
             enable: true
+            valid_border_margin: 2
 model:
     name: 'magic_point'
     batch_size: 64

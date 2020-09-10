@@ -6,10 +6,11 @@ import argparse
 import yaml
 from pathlib import Path
 
+from superpoint.radial_distortion.radial_dist_funct import distort 
 from superpoint.models.homographies import (sample_homography, flat2mat,
                                             invert_homography)
 from superpoint.settings import DATA_PATH
-
+from PIL import Image
 
 seed = None
 
@@ -39,10 +40,15 @@ if __name__ == '__main__':
     args = parser.parse_args()
     with open(args.config, 'r') as f:
         config = yaml.load(f)
-
+		
+    distortion = config['distortion']['enable']
+	
     base_path = Path(DATA_PATH, 'COCO/val2014/')
     image_paths = list(base_path.iterdir())
-    output_dir = Path(DATA_PATH, 'COCO/patches/')
+    if(distortion):
+        output_dir = Path(DATA_PATH, 'COCO/patches_dist/') 
+    else:
+       output_dir = Path(DATA_PATH, 'COCO/patches/') #patches when no distortion
     if not output_dir.exists():
         os.makedirs(output_dir)
 
@@ -57,6 +63,16 @@ if __name__ == '__main__':
     # Warp the image
     H = sample_homography(tf.shape(image)[:2], **config['homographies'])
     warped_image = tf.contrib.image.transform(image, H, interpolation="BILINEAR")
+    #apply distortion:
+    if(distortion):
+        row_c = tf.random_uniform(shape=[], minval=0, maxval=tf.cast(240, tf.float32), dtype=tf.float32) #tf.constant(120.)
+        col_c = tf.random_uniform(shape=[], minval=0, maxval=tf.cast(320, tf.float32), dtype=tf.float32) #tf.constant(160.) 
+        lambda_ = 0.000009
+        warped_image = tf.reshape(warped_image, [240,320,1])
+        warped_image = distort(warped_image[tf.newaxis,...], lambda_, (row_c, col_c))
+        sh = tf.shape(warped_image)
+        warped_image = tf.reshape(warped_image, sh[1:])
+       		
     patch_ratio = config['homographies']['patch_ratio']
     new_shape = tf.multiply(tf.cast(shape, tf.float32), patch_ratio)
     new_shape = tf.cast(new_shape, tf.int32)
@@ -72,15 +88,25 @@ if __name__ == '__main__':
             os.makedirs(new_path)
 
         # Run
-        im, warped_im, homography = sess.run([image, warped_image, H],
-                                             feed_dict={tf_path: str(path)})
+        if(distortion):
+            im, warped_im, homography, r_c, c_c = sess.run([image, warped_image, H, row_c, col_c],
+                                                 feed_dict={tf_path: str(path)})
+        else:
+            im, warped_im, homography = sess.run([image, warped_image, H],
+                                                 feed_dict={tf_path: str(path)})
 
         # Add scaling to adapt to the fact that the patch is
         # twice as small as the original image
         homography[2, :] /= patch_ratio
 
         # Write the result in files
+       
         cv.imwrite(str(Path(new_path, "1.jpg")), im)
         cv.imwrite(str(Path(new_path, "2.jpg")), warped_im)
         np.savetxt(Path(new_path, "H_1_2"), homography, '%.5g')
+        if(distortion):
+            factors = np.array([r_c, c_c, lambda_])
+            np.savetxt(Path(new_path, "dist_factors"), factors, fmt='%.5g')
+            
+
     print("Files generated in " + str(output_dir))

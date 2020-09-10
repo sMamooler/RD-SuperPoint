@@ -67,18 +67,18 @@ def radial_distortion_augmentation(data, add_distortion_params=False, **config):
 		W = image_shape[1]
 		row_c = tf.random_uniform(shape=[], minval=0, maxval=tf.cast(H, tf.float32), dtype=tf.float32)
 		col_c = tf.random_uniform(shape=[], minval=0, maxval=tf.cast(W, tf.float32), dtype=tf.float32) 
-		lambda_ = 0.000006
+		lambda_ = 0.000009
 		 
 		warped_image  = distort(data['image'][tf.newaxis,...],lambda_ ,(row_c,col_c))
 		warped_image = tf.reshape(warped_image,tf.shape(data['image']))
 		
-		valid_mask = compute_valid_mask_dist(image_shape, lambda_, (row_c,col_c), config['valid_border_margin'])
-		if(data['valid_mask']!=None):
-			valid_mask = tf.bitwise.bitwise_and(valid_mask,data['valid_mask'])
-			
+		valid_mask = compute_valid_mask_dist(data['valid_mask'], lambda_, (row_c,col_c), config['valid_border_margin'])
+
+		
+	
 		warped_points = warp_points_dist(data['keypoints'], lambda_, (row_c,col_c), inverse=False)
 		warped_points = filter_points(warped_points,image_shape)
-		 
+		data['keypoints'] = warped_points
 		ret = {**data, 'image':warped_image, 'keypoints': warped_points,
 				  'valid_mask': valid_mask}
 		if add_distortion_params:

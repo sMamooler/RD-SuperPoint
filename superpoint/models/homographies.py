@@ -2,6 +2,8 @@ import tensorflow as tf
 from tensorflow.contrib.image import transform as H_transform
 from math import pi
 import cv2 as cv
+import os
+
 
 from superpoint.utils.tools import dict_update
 
@@ -203,7 +205,9 @@ def sample_homography(
         center = tf.reduce_mean(pts2, axis=0, keepdims=True)
         rot_mat = tf.reshape(tf.stack([tf.cos(angles), -tf.sin(angles), tf.sin(angles),
                                        tf.cos(angles)], axis=1), [-1, 2, 2])
+       
         rotated = tf.matmul(tf.tile(tf.expand_dims(pts2 - center, axis=0), [n_angles+1, 1, 1]),rot_mat) + center
+        #rotated = tf.einsum('...ij,...jk->...ik',tf.tile(tf.expand_dims(pts2 - center, axis=0), [n_angles+1, 1, 1]),rot_mat) + center
         if allow_artifacts:
             valid = tf.range(n_angles)  # all angles are valid, except angle=0
         else:
@@ -224,7 +228,12 @@ def sample_homography(
     a_mat = tf.stack([f(pts1[i], pts2[i]) for i in range(4) for f in (ax, ay)], axis=0)
     p_mat = tf.transpose(tf.stack(
         [[pts2[i][j] for i in range(4) for j in range(2)]], axis=0))
-    homography = tf.transpose(tf.matrix_solve_ls(a_mat, p_mat, fast=True))
+    
+    #a_mat = tf.cast(a_mat, tf.float32)
+    #p_mat = tf.cast(p_mat, tf.float32)
+    
+    with tf.device('/device:CPU:0'):
+        homography = tf.transpose(tf.matrix_solve_ls(a_mat, p_mat, fast=False))
     return homography
 
 

@@ -3,6 +3,7 @@ from os import path as osp
 from glob import glob
 
 from superpoint.settings import EXPER_PATH
+from superpoint.evaluations.evaluation_tool import select_k_best, warp_keypoints, keep_true_keypoints, filter_keypoints
 
 
 def get_paths(exper_name):
@@ -141,35 +142,6 @@ def compute_repeatability(exper_name, keep_k_points=300,
     on 2 images, an original image and a warped version of it, plus the homography
     linking the 2 images.
     """
-    def warp_keypoints(keypoints, H):
-        num_points = keypoints.shape[0]
-        homogeneous_points = np.concatenate([keypoints, np.ones((num_points, 1))],
-                                            axis=1)
-        warped_points = np.dot(homogeneous_points, np.transpose(H))
-        return warped_points[:, :2] / warped_points[:, 2:]
-
-    def filter_keypoints(points, shape):
-        """ Keep only the points whose coordinates are
-        inside the dimensions of shape. """
-        mask = (points[:, 0] >= 0) & (points[:, 0] < shape[0]) &\
-               (points[:, 1] >= 0) & (points[:, 1] < shape[1])
-        return points[mask, :]
-
-    def keep_true_keypoints(points, H, shape):
-        """ Keep only the points whose warped coordinates by H
-        are still inside shape. """
-        warped_points = warp_keypoints(points[:, [1, 0]], H)
-        warped_points[:, [0, 1]] = warped_points[:, [1, 0]]
-        mask = (warped_points[:, 0] >= 0) & (warped_points[:, 0] < shape[0]) &\
-               (warped_points[:, 1] >= 0) & (warped_points[:, 1] < shape[1])
-        return points[mask, :]
-
-    def select_k_best(points, k):
-        """ Select the k most probable points (and strip their proba).
-        points has shape (num_points, 3) where the last coordinate is the proba. """
-        sorted_prob = points[points[:, 2].argsort(), :2]
-        start = min(k, points.shape[0])
-        return sorted_prob[-start:, :]
 
     paths = get_paths(exper_name)
     repeatability = []
@@ -178,7 +150,7 @@ def compute_repeatability(exper_name, keep_k_points=300,
     for path in paths:
         data = np.load(path)
         shape = data['warped_prob'].shape
-        H = data['homography']
+       
 
         # Filter out predictions
         keypoints = np.where(data['prob'] > 0)
@@ -189,11 +161,10 @@ def compute_repeatability(exper_name, keep_k_points=300,
         warped_keypoints = np.stack([warped_keypoints[0],
                                      warped_keypoints[1],
                                      warped_prob], axis=-1)
-        warped_keypoints = keep_true_keypoints(warped_keypoints, np.linalg.inv(H),
-                                               data['prob'].shape)
+        warped_keypoints = keep_true_keypoints(data, warped_keypoints, inv=True)
 
         # Warp the original keypoints with the true homography
-        true_warped_keypoints = warp_keypoints(keypoints[:, [1, 0]], H)
+        true_warped_keypoints = warp_keypoints(data, keypoints[:, [1, 0]])
         true_warped_keypoints = np.stack([true_warped_keypoints[:, 1],
                                           true_warped_keypoints[:, 0],
                                           prob], axis=-1)

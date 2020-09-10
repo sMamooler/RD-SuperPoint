@@ -1,14 +1,16 @@
 data:
     name: 'patches_dataset'
-    dataset: 'hpatches'  # 'hpatches' 'coco'
-    alteration: 'v'  # 'i' 'v' 'all'
+    dataset: 'coco'  # 'hpatches' 'coco'
+    alteration: 'all'  # 'i' 'v' 'all'
     cache_in_memory: false
     validation_size: 100
     preprocessing:
-        resize: [240, 320]  # False for coco
+        resize: false  # False for coco
+    distort:
+        enable: false
 model:
     name: 'classical_detectors'
-    method: 'harris'  # 'shi' 'fast' 'random'
+    method: 'fast'  #'harris' 'shi' 'random'
     batch_size: 50  # unused
     learning_rate: 0.001  # unused
     nms: 4

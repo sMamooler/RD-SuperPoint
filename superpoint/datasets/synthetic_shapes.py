@@ -53,6 +53,10 @@ class SyntheticShapes(BaseDataset):
                     'params': {},
                     'valid_border_margin': 0,
                 },
+		'distortion':{
+		    'enable': False,
+	            'valid_border_margin': 0,
+		},
             }
     }
     drawing_primitives = [
@@ -210,7 +214,7 @@ class SyntheticShapes(BaseDataset):
                 data = data.map_parallel(lambda d: pipeline.homographic_augmentation(d, **config['augmentation']['homographic']))
             if config['augmentation']['distortion']['enable']:
                 data = data.map_parallel(lambda d: pipeline.radial_distortion_augmentation(
-                    d, **config['augmentation']['homographic']))
+                    d, **config['augmentation']['distortion']))
 					
 
         # Convert the point coordinates to a dense keypoint map

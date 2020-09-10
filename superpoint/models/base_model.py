@@ -3,6 +3,7 @@ import tensorflow as tf
 from tensorflow.python.client import timeline
 import numpy as np
 from tqdm import tqdm
+import os
 import os.path as osp
 import itertools
 
@@ -122,6 +123,7 @@ class BaseModel(metaclass=ABCMeta):
             self._build_graph()
 
     def _unstack_nested_dict(self, d, num):
+        print(d.items())
         return {k: self._unstack_nested_dict(v, num) if isinstance(v, dict)
                 else tf.unstack(v, num=num, axis=0) for k, v in d.items()}
 
@@ -272,7 +274,7 @@ class BaseModel(metaclass=ABCMeta):
                         for i, spec in self.input_spec.items()}
         self._pred_graph(self.pred_in)
 
-        # Start session
+        # Start 
         sess_config = tf.ConfigProto(device_count={'GPU': self.n_gpus},
                                      allow_soft_placement=True)
         sess_config.gpu_options.allow_growth = True

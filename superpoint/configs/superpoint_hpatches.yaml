@@ -1,9 +1,11 @@
 data:
     name: 'patches_dataset'
-    dataset: 'hpatches'  # 'coco' 'hpatches'
-    alteration: 'i'  # 'all' 'i' 'v'
+    dataset: 'coco'  # 'coco' 'hpatches'
+    alteration: 'all'  # 'all' 'i' 'v'
     preprocessing:
-        resize: [480, 640]  # False for coco
+        resize: false  # False for coco
+    distort:
+        enable: false
 model:
     name: 'super_point'
     data_format: 'channels_last'
@@ -23,10 +25,10 @@ model:
             scaling: true
             perspective: true
             scaling_amplitude: 0.1
-            perspective_amplitude_x: 0.2
-            perspective_amplitude_y: 0.2
-            patch_ratio: 0.85
-            max_angle: 1.57
+            perspective_amplitude_x: 0.5
+            perspective_amplitude_y: 0.5
+            patch_ratio: 0.8
+            max_angle: 3.14
             allow_artifacts: false
 eval_iter: 600
 seed: 1

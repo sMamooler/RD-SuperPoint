@@ -2,7 +2,7 @@ data:
     name: 'coco'
     cache_in_memory: false
     validation_size: 96
-    labels: outputs/mp_synth-v11_export_ha2  # use your own labels here
+    labels: outputs/mp_coco-export_dist_aug_2  # use your own labels here
     augmentation:
         photometric:
             enable: true
@@ -20,6 +20,8 @@ data:
                 motion_blur: {max_kernel_size: 3}
         homographic:
             enable: false  # not implemented
+        distortion:
+            enable: false
     warped_pair:
         enable: true
         params:
@@ -39,10 +41,10 @@ model:
     batch_size: 2
     eval_batch_size: 2
     learning_rate: 0.0001
-    lambda_d: 0.05
+    lambda_d: 250 #800
     positive_margin: 1
     negative_margin: 0.2
-    lambda_loss: 10000
+    lambda_loss: 0.0001 #1
     detection_threshold: 0.001
     nms: 4
     top_k: 600

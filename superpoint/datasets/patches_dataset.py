@@ -21,12 +21,21 @@ class PatchesDataset(BaseDataset):
     }
 
     def _init_dataset(self, **config):
-        dataset_folder = 'COCO/patches' if config['dataset'] == 'coco' else 'HPatches'
+        distort = config['distort']['enable']
+        if(distort):
+             dataset_folder = 'COCO/patches_dist' if config['dataset'] == 'coco' else 'HPatches'
+        else:
+            dataset_folder = 'COCO/patches' if config['dataset'] == 'coco' else 'HPatches'
+                
         base_path = Path(DATA_PATH, dataset_folder)
         folder_paths = [x for x in base_path.iterdir() if x.is_dir()]
         image_paths = []
         warped_image_paths = []
         homographies = []
+        dist_cen = []
+        dist_fact = []
+		
+		
         for path in folder_paths:
             if config['alteration'] == 'i' and path.stem[0] != 'i':
                 continue
@@ -38,13 +47,30 @@ class PatchesDataset(BaseDataset):
                 image_paths.append(str(Path(path, "1" + file_ext)))
                 warped_image_paths.append(str(Path(path, str(i) + file_ext)))
                 homographies.append(np.loadtxt(str(Path(path, "H_1_" + str(i)))))
+                if(distort):
+                    dist_factors = np.loadtxt(str(Path(path, "dist_factors")))
+                    #print(dist_factors)
+                    dist_fact.append(dist_factors[2])
+                    dist_cen.append((dist_factors[0],dist_factors[1]))
+                  
+        
+		
         if config['truncate']:
             image_paths = image_paths[:config['truncate']]
             warped_image_paths = warped_image_paths[:config['truncate']]
             homographies = homographies[:config['truncate']]
-        files = {'image_paths': image_paths,
-                 'warped_image_paths': warped_image_paths,
-                 'homography': homographies}
+        
+        if(distort):
+            files = {'image_paths': image_paths,
+	                 'warped_image_paths': warped_image_paths,
+					 'homography': homographies,
+					 'distortion_center': dist_cen,
+					 'distortion_factor': dist_fact}
+        else:
+            files = {'image_paths': image_paths,
+	                 'warped_image_paths': warped_image_paths,
+					 'homography': homographies}
+			
         return files
 
     def _get_data(self, files, split_name, **config):
@@ -94,9 +120,15 @@ class PatchesDataset(BaseDataset):
         def _get_shape(image):
             return tf.shape(image)[:2]
 
+        distort =  config['distort']['enable']
         images = tf.data.Dataset.from_tensor_slices(files['image_paths'])
         images = images.map(lambda path: tf.py_func(_read_image, [path], tf.uint8))
         homographies = tf.data.Dataset.from_tensor_slices(np.array(files['homography']))
+        if(distort):
+            dist_fact = tf.data.Dataset.from_tensor_slices(np.array(files['distortion_factor']))
+            dist_cen  = tf.data.Dataset.from_tensor_slices(np.array(files['distortion_center']))
+                
+		
         warped_images = tf.data.Dataset.from_tensor_slices(files['warped_image_paths'])
         warped_images = warped_images.map(lambda path: tf.py_func(_read_image,
                                                                   [path],
@@ -115,7 +147,12 @@ class PatchesDataset(BaseDataset):
         images = images.map(lambda img: tf.to_float(img) / 255.)
         warped_images = warped_images.map(lambda img: tf.to_float(img) / 255.)
 
-        data = tf.data.Dataset.zip({'image': images, 'warped_image': warped_images,
+        if(distort):
+            data = tf.data.Dataset.zip({'image': images, 'warped_image': warped_images,
+                                    'homography': homographies, 'distortion_center': dist_cen, 
+									'distortion_factor': dist_fact})
+        else:
+            data = tf.data.Dataset.zip({'image': images, 'warped_image': warped_images,
                                     'homography': homographies})
-
+			
         return data

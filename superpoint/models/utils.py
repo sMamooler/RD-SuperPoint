@@ -17,8 +17,8 @@ def detector_head(inputs, **config):
                       activation=tf.nn.relu, **params_conv)
         x = vgg_block(x, 1+pow(config['grid_size'], 2), 1, 'conv2',
                       activation=None, **params_conv)
-
-        prob = tf.nn.softmax(x, axis=cindex)
+        with tf.device('/cpu:0'):
+            prob = tf.nn.softmax(x, axis=cindex)
         # Strip the extra “no interest point” dustbin
         prob = prob[:, :-1, :, :] if cfirst else prob[:, :, :, :-1]
         prob = tf.depth_to_space(
